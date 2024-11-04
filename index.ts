@@ -44,7 +44,13 @@ Bun.serve({
             const id = url.searchParams.get('id');
             if (!id) return response("Bad Request", 400);
             if (!offers.has(id)) return response("Not Found", 404);
+
+            const waitingOffer = offers.get(id);
+            clearTimeout(waitingOffer!.timer);
+            const resOffer = response("", 204); // No contents
+            waitingOffer!.res(resOffer);
             offers.delete(id);
+
             return response(`Code (${id}) is inactive (deleted)`, 200);
         }
 
