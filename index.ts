@@ -6,16 +6,8 @@ function applyCORSHeader(res: Response) {
     res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
     return res;
 }
-function badRequest() {
-    const response = new Response("Bad Request", { status: 400 });
-    return applyCORSHeader(response);
-}
-function notFound() {
-    const response = new Response("Not Found", { status: 404 });
-    return applyCORSHeader(response);
-}
-function requestTimeout() {
-    const response = new Response("Request Timeout", { status: 408 });
+function response(content: string, code: number) {
+    const response = new Response(content, { status: code });
     return applyCORSHeader(response);
 }
 
@@ -24,66 +16,68 @@ Bun.serve({
     async fetch(req) {
         // Handle CORS preflight requests
         if (req.method === 'OPTIONS') {
-            const response = new Response('Departed');
-            return applyCORSHeader(response);
+            return response('Departed', 200);
         }
 
         const url = new URL(req.url);
 
         if (url.pathname === "/create-offer") {
-            if (req.method !== 'POST') return badRequest();
+            if (req.method !== 'POST') return response("Bad Request", 400);
 
             const body = await req.json();
-            if (!body.id || !body.sd) return badRequest();
-            if (offers.has(body.id)) {
-                const respose = new Response("ID Already Exists", { status: 202 });
-                return applyCORSHeader(respose);
-            }
+            if (!body.id || !body.sd) return response("Bad Request", 400);
+            if (offers.has(body.id)) return response("ID Already Exists", 202)
 
             return new Promise<Response>((resolve) => {
                 const timeout = setTimeout(() => {
                     offers.delete(body.id);
-                    const timeoutRes = requestTimeout();
+                    const timeoutRes = response(`Code (${body.id}) is inactive (timeout)`, 408);
                     resolve(timeoutRes);
                 }, 30000);
                 offers.set(body.id, { sd: body.sd, res: resolve, timer: timeout });
             });
         }
 
-        if (url.pathname === "/get-offer") {
-            if (req.method !== 'GET') return badRequest();
+        if (url.pathname === "/delete-offer") {
+            if (req.method !== 'GET') return response("Bad Request", 400);
 
             const id = url.searchParams.get('id');
-            if (!id) return badRequest();
+            if (!id) return response("Bad Request", 400);
+            if (!offers.has(id)) return response("Not Found", 404);
+            offers.delete(id);
+            return response(`Code (${id}) is inactive (deleted)`, 200);
+        }
+
+        if (url.pathname === "/get-offer") {
+            if (req.method !== 'GET') return response("Bad Request", 400);
+
+            const id = url.searchParams.get('id');
+            if (!id) return response("Bad Request", 400);
 
             const waitingOffer = offers.get(id);
 
-            if (waitingOffer) {
-                const response = new Response(JSON.stringify(waitingOffer.sd));
-                return applyCORSHeader(response);
-            }
-            else return notFound();
+            if (waitingOffer) return response(JSON.stringify(waitingOffer.sd), 200);
+            else return response("Not Found", 404);
         }
 
         if (url.pathname === "/create-answer") {
-            if (req.method !== 'POST') return badRequest();
+            if (req.method !== 'POST') return response("Bad Request", 400);
 
             const body = await req.json();
-            if (!body.id || !body.sd) return badRequest();
+            if (!body.id || !body.sd) return response("Bad Request", 400);
 
             const waitingOffer = offers.get(body.id);
 
             if (waitingOffer) {
                 clearTimeout(waitingOffer.timer);
-                const resOffer = new Response(JSON.stringify(body.sd));
-                waitingOffer.res(applyCORSHeader(resOffer));
+                const resOffer = response(JSON.stringify(body.sd), 200)
+                waitingOffer.res(resOffer);
                 offers.delete(body.id);
-                const response = new Response("Wait for connecting");
-                return applyCORSHeader(response);
+                return response("Wait for connecting", 200);
             }
-            else return notFound();
+            else return response("Not Found", 404);
         }
 
-        return badRequest();
+        return response("Bad Request", 400);
     }
 });
