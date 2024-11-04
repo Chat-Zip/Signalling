@@ -6,7 +6,6 @@ function applyCORSHeader(res: Response) {
     res.headers.set('Access-Control-Allow-Headers', 'Content-Type');
     return res;
 }
-
 function badRequest() {
     const response = new Response("Bad Request", { status: 400 });
     return applyCORSHeader(response);
@@ -36,6 +35,10 @@ Bun.serve({
 
             const body = await req.json();
             if (!body.id || !body.sd) return badRequest();
+            if (offers.has(body.id)) {
+                const respose = new Response("ID Already Exists", { status: 202 });
+                return applyCORSHeader(respose);
+            }
 
             return new Promise<Response>((resolve) => {
                 const timeout = setTimeout(() => {
