@@ -2,6 +2,9 @@
   "name": "signalling",
   "module": "index.ts",
   "type": "module",
+  "scripts": {
+    "start": "bun --env-file=env/.env index.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
