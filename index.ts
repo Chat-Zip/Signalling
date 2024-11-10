@@ -15,8 +15,7 @@ function response(req: Request, content: string, code: number) {
 }
 
 Bun.serve({
-    // port: process.env.PORT,
-    port: 3000,
+    port: Bun.env.PORT,
     async fetch(req) {
         // Handle CORS preflight requests
         if (req.method === 'OPTIONS') {
@@ -24,6 +23,8 @@ Bun.serve({
         }
 
         const url = new URL(req.url);
+
+        if (url.pathname === "/") return response(req, "", 204);
 
         if (url.pathname === "/create-offer") {
             if (req.method !== 'POST') return response(req, "Bad Request", 400);
